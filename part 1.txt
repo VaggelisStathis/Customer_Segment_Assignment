@@ -1,0 +1,122 @@
+
+
+--CREATE VIEW main_assessment.cities_with_many_orders AS
+--SELECT * 
+--FROM `efood2022-357409.main_assessment.orders` WHERE CITY IN (select city  FROM `efood2022-357409.main_assessment.orders` group by city  having count(order_id)  >1000 );
+
+--CREATE VIEW main_assessment.cities_with_many_breakfast_orders AS
+--SELECT * 
+--FROM `efood2022-357409.main_assessment.orders` WHERE CITY IN (select city  FROM `efood2022-357409.main_assessment.orders` group by city  having count(order_id)  >1000 ) and cuisine = 'Breakfast';
+
+SELECT *
+FROM ( select city, sum(amount) as total_amount, count(order_id) as num_of_orders, count(distinct user_id) num_of_users FROM main_assessment.cities_with_many_orders group by city) as table1, 
+(select city, sum(amount) as total_amount_br, count(order_id) as num_of_orders_br, count(distinct user_id) num_of_users_br FROM main_assessment.cities_with_many_breakfast_orders group by city) as table2,
+(select city, count(m) as number_of_users_3_orders from (select city,  count(user_id) as m  FROM main_assessment.cities_with_many_orders group by city, user_id having count(user_id)  >3 order by city) group by city) as table3,
+(select city, count(m) as number_of_users_3_br_orders from (select city,  count(user_id) as m  FROM main_assessment.cities_with_many_breakfast_orders  group by city, user_id having count(user_id)  >3 order by city) group by city)  as table4
+where table1.city = table2.city
+and table1.city = table3.city
+and table1.city = table4.city;
+
+--Query #1
+
+with br as (
+  SELECT table_agg.city, 
+  round((table_br_agg.total_amount_br / table_br_agg.num_of_orders_br),2) as avg_breakfast_basket, 
+  round((table_agg.total_amount / table_agg.num_of_orders),2) as avg_efood_basket,
+  round((table_br_agg.num_of_orders_br / table_br_agg.num_of_users_br),2) as avg_breakfast_frequency_per_brfst_user, 
+  round((table_br_agg.num_of_orders_br / table_agg.num_of_users),2) as avg_breakfast_frequency_per_user, 
+  round((table_agg.num_of_orders / table_agg.num_of_users),2) as avg_order_frequency,
+  concat(round((table_br_agg_3.number_of_users_3_br_orders / table_br_agg.num_of_users_br * 100),2), '%')as breakfast_frequent_users_perc_of_breakfast_total_users, 
+  concat(round((table_agg_3.number_of_users_3_orders / table_agg.num_of_users * 100),2), '%') as frequent_users_perc_of_total_users,
+FROM 
+(select city, sum(amount) as total_amount, count(order_id) as num_of_orders, count(distinct user_id) num_of_users FROM main_assessment.cities_with_many_orders group by city) as table_agg, 
+(select city, sum(amount) as total_amount_br, count(order_id) as num_of_orders_br, count(distinct user_id) num_of_users_br FROM main_assessment.cities_with_many_breakfast_orders group by city) as table_br_agg,
+(select city, count(m) as number_of_users_3_orders from (select city,  count(user_id) as m  FROM main_assessment.cities_with_many_orders group by city, user_id having count(user_id)  >3 order by city) group by city) as table_agg_3,
+(select city, count(m) as number_of_users_3_br_orders from (select city,  count(user_id) as m  FROM main_assessment.cities_with_many_breakfast_orders  group by city, user_id having count(user_id)  >3 order by city) group by city)  as table_br_agg_3
+where table_agg.city = table_br_agg.city
+and table_agg.city = table_agg_3.city
+and table_agg.city = table_br_agg_3.city
+)
+select city, 
+avg_breakfast_basket, 
+avg_efood_basket, 
+concat(round((avg_breakfast_basket / avg_efood_basket *100),2), '%') breakfast_basket_perc_of_total_basket, 
+avg_breakfast_frequency_per_brfst_user,
+avg_breakfast_frequency_per_user,
+avg_order_frequency, 
+concat(round((avg_breakfast_frequency_per_user / avg_order_frequency *100),2), '%') breakfast_freq_perc_of_total_order_freq, 
+breakfast_frequent_users_perc_of_breakfast_total_users, 
+frequent_users_perc_of_total_users from br;
+
+--version2, no %
+
+with br as (
+  SELECT table_agg.city, 
+  round((table_br_agg.total_amount_br / table_br_agg.num_of_orders_br),2) as avg_breakfast_basket, 
+  round((table_agg.total_amount / table_agg.num_of_orders),2) as avg_efood_basket,
+  round((table_br_agg.num_of_orders_br / table_br_agg.num_of_users_br),2) as avg_breakfast_frequency_per_brfst_user, 
+  round((table_br_agg.num_of_orders_br / table_agg.num_of_users),2) as avg_breakfast_frequency_per_user, 
+  round((table_agg.num_of_orders / table_agg.num_of_users),2) as avg_order_frequency,
+  round((table_br_agg_3.number_of_users_3_br_orders / table_br_agg.num_of_users_br * 100),2)as breakfast_frequent_users_perc_of_breakfast_total_users, 
+  round((table_agg_3.number_of_users_3_orders / table_agg.num_of_users * 100),2) as frequent_users_perc_of_total_users,
+FROM 
+(select city, sum(amount) as total_amount, count(order_id) as num_of_orders, count(distinct user_id) num_of_users FROM main_assessment.cities_with_many_orders group by city) as table_agg, 
+(select city, sum(amount) as total_amount_br, count(order_id) as num_of_orders_br, count(distinct user_id) num_of_users_br FROM main_assessment.cities_with_many_breakfast_orders group by city) as table_br_agg,
+(select city, count(m) as number_of_users_3_orders from (select city,  count(user_id) as m  FROM main_assessment.cities_with_many_orders group by city, user_id having count(user_id)  >3 order by city) group by city) as table_agg_3,
+(select city, count(m) as number_of_users_3_br_orders from (select city,  count(user_id) as m  FROM main_assessment.cities_with_many_breakfast_orders  group by city, user_id having count(user_id)  >3 order by city) group by city)  as table_br_agg_3
+where table_agg.city = table_br_agg.city
+and table_agg.city = table_agg_3.city
+and table_agg.city = table_br_agg_3.city
+)
+select city, 
+avg_breakfast_basket, 
+avg_efood_basket, 
+round((avg_breakfast_basket / avg_efood_basket *100),2) breakfast_basket_perc_of_total_basket, 
+avg_breakfast_frequency_per_brfst_user,
+avg_breakfast_frequency_per_user,
+avg_order_frequency, 
+round((avg_breakfast_frequency_per_user / avg_order_frequency *100),2) breakfast_freq_perc_of_total_order_freq, 
+breakfast_frequent_users_perc_of_breakfast_total_users, 
+frequent_users_perc_of_total_users from br;
+
+
+--Query #2
+select city,user_id,   count(user_id) as m, round(sum(amount),2) as amount FROM main_assessment.cities_with_many_orders group by city, user_id  order by city, m desc;
+
+
+--CREATE VIEW main_assessment.city_best_customers AS
+--(
+  --  SELECT *, ROW_NUMBER() 
+   -- over (
+    --    PARTITION BY city
+    --    order by m desc
+   -- ) AS RowNo 
+  --  FROM (select city,user_id,   count(user_id) as m  FROM main_assessment.cities_with_many_orders group by city, user_id  order by city, m desc)
+--);
+
+--CREATE VIEW main_assessment.city_best_customers_am AS
+--(
+   -- SELECT *, ROW_NUMBER() 
+   -- over (
+   --     PARTITION BY city
+    --    order by m desc
+   -- ) AS RowNo 
+--FROM (select city,user_id,   count(user_id) as m,  round(sum(amount),2) as amount  FROM main_assessment.cities_with_many_orders group by city, user_id  order by city, m desc)
+--);
+
+SELECT top10.city, 
+round((top10.orders_sum_top_10 / total.orders_sum *100),2) orders_percentage_top_10_customers
+FROM 
+(SELECT city, sum(m) as orders_sum_top_10 FROM main_assessment.city_best_customers WHERE RowNo <= 10 group by city) as top10, 
+(SELECT city, sum(m) as orders_sum FROM main_assessment.city_best_customers  group by city) as total
+where top10.city = total.city order by 2 desc;
+
+
+--version amount
+SELECT top10.city, 
+round((top10.orders_sum_top_10 / total.orders_sum *100),2) orders_percentage_top_10_customers,
+round((top10.amount10 / total.amount *100),2) amount_percentage_top_10_customers
+FROM 
+(SELECT city, sum(m) as orders_sum_top_10, sum(amount) as amount10 FROM main_assessment.city_best_customers_am WHERE RowNo <= 10 group by city) as top10, 
+(SELECT city, sum(m) as orders_sum, sum(amount) as amount  FROM main_assessment.city_best_customers_am  group by city) as total
+where top10.city = total.city order by 2 desc;
